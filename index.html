@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ToP Vanilla Timetable</title>
+  <title>Game Activity Timetable</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -351,7 +351,10 @@
         <div class="hero-top">
           <div>
             <h1 class="title">Game Activity Timetable</h1>
-
+            <p class="subtitle">
+              Weekly activity view based on <strong>game server time</strong> in <strong>America/Los_Angeles</strong>.
+              Cards start from the current server day, the current day is highlighted, and the next activity is emphasized.
+            </p>
           </div>
           <div class="badge-row">
             <div class="badge" id="user-zone-badge">Local timezone</div>
@@ -388,6 +391,11 @@
       <div class="cards" id="cards"></div>
     </section>
 
+    <div class="footer-note">
+      Edit the timetable data in <code class="inline">scheduleData</code> inside this file.
+      Time strings must use 24-hour format like <code class="inline">"09:30"</code> and are interpreted in the game server timezone.
+      This file can be published directly with GitHub Pages as <code class="inline">index.html</code>.
+    </div>
   </div>
 
   <script>
@@ -580,10 +588,23 @@
 
     function buildServerDateTime(baseServerDate, hhmm) {
       const [hour, minute] = hhmm.split(':').map(Number);
-      const utcGuess = new Date(Date.UTC(
+
+      // Start from noon UTC on the intended calendar date to avoid crossing
+      // into the previous server day while resolving the timezone offset.
+      const stableUTC = new Date(Date.UTC(
         baseServerDate.year,
         baseServerDate.month - 1,
         baseServerDate.day,
+        12,
+        0,
+        0
+      ));
+
+      const resolvedServerDate = getServerParts(stableUTC);
+      const utcGuess = new Date(Date.UTC(
+        resolvedServerDate.year,
+        resolvedServerDate.month - 1,
+        resolvedServerDate.day,
         hour,
         minute,
         0
@@ -593,16 +614,9 @@
       return new Date(utcGuess.getTime() - offsetMinutes * 60000);
     }
 
-    function addDaysInServerCalendar(serverDate, daysToAdd) {
-      const noonUTC = new Date(Date.UTC(
-        serverDate.year,
-        serverDate.month - 1,
-        serverDate.day + daysToAdd,
-        12,
-        0,
-        0
-      ));
-      return getServerParts(noonUTC);
+    function addDaysInServerCalendar(serverDate, daysToAdd, anchorNow = new Date()) {
+      const shifted = new Date(anchorNow.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+      return getServerParts(shifted);
     }
 
     function formatDuration(ms) {
@@ -631,7 +645,7 @@
       for (let dayOffset = 0; dayOffset < 8; dayOffset++) {
         const weekdayIndex = (currentDayIndex + dayOffset) % 7;
         const weekdayName = WEEKDAYS[weekdayIndex];
-        const serverDate = addDaysInServerCalendar(currentServer, dayOffset);
+        const serverDate = addDaysInServerCalendar(currentServer, dayOffset, now);
         const activities = (scheduleData[weekdayName] || [])
           
           .map(item => ({
@@ -674,14 +688,15 @@
       return Array.from({ length: 7 }, (_, offset) => {
         const weekdayIndex = (currentDayIndex + offset) % 7;
         const weekdayName = WEEKDAYS[weekdayIndex];
-        const serverDate = addDaysInServerCalendar(currentServer, offset);
+        const serverDate = addDaysInServerCalendar(currentServer, offset, now);
         const activities = (scheduleData[weekdayName] || []).map(item => ({
           ...item,
           startDate: buildServerDateTime(serverDate, item.time)
         })).sort((a, b) => a.startDate - b.startDate);
 
-        let nextIndex = activities.findIndex(activity => activity.startDate > now);
-        if (nextIndex === -1) nextIndex = activities.length ? 0 : -1;
+        let nextIndex = offset === 0
+          ? activities.findIndex(activity => activity.startDate > now)
+          : (activities.length ? 0 : -1);
 
         return {
           offset,
@@ -694,13 +709,14 @@
       });
     }
 
-    function createActivityHTML(activity, isNext, now) {
-      const isPast = activity.startDate <= now && !isNext;
+    function createActivityHTML(activity, isNext, now, isCurrentDayCard) {
+      const isPast = isCurrentDayCard && activity.startDate <= now && !isNext;
+      const stateLabel = isNext ? 'Next' : isPast ? 'Passed' : 'Upcoming';
       return `
         <div class="activity ${isNext ? 'next' : ''} ${isPast ? 'past' : ''}">
           <div class="activity-top">
             <div class="activity-name">${activity.name}</div>
-            <div class="activity-state ${isNext ? 'next' : ''}">${isNext ? 'Next' : isPast ? 'Passed' : 'Upcoming'}</div>
+            <div class="activity-state ${isNext ? 'next' : ''}">${stateLabel}</div>
           </div>
           <div class="time-pair">
             <div><strong>Server:</strong> ${formatters.serverShortDateTime.format(activity.startDate)}</div>
@@ -718,7 +734,7 @@
         const nextActivity = card.nextIndex >= 0 ? card.activities[card.nextIndex] : null;
         const countdown = nextActivity ? formatDuration(nextActivity.startDate - now) : 'No events';
         const activitiesHTML = card.activities.length
-          ? card.activities.map((activity, index) => createActivityHTML(activity, index === card.nextIndex, now)).join('')
+          ? card.activities.map((activity, index) => createActivityHTML(activity, index === card.nextIndex, now, card.isCurrentDay)).join('')
           : '<div class="activity"><div class="activity-name">No activities configured</div></div>';
 
         return `
