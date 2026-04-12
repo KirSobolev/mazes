@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Activity Timetable</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121932;
+      --panel-2: #182245;
+      --panel-3: #1d2a57;
+      --text: #e9eefc;
+      --muted: #9fb0dd;
+      --accent: #7aa2ff;
+      --accent-2: #56e0c5;
+      --warning: #ffcc66;
+      --danger: #ff7c93;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 20px 40px rgba(0,0,0,0.28);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(122,162,255,0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(86,224,197,0.10), transparent 28%),
+        linear-gradient(180deg, #09101f 0%, #0b1020 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .hero-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: clamp(1.6rem, 2.4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin: 0;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 860px;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: rgba(122,162,255,0.12);
+      border: 1px solid rgba(122,162,255,0.22);
+      color: #dbe6ff;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .clock-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .clock-card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 132px;
+    }
+
+    .clock-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .clock-time {
+      font-size: clamp(1.45rem, 2.1vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 6px;
+    }
+
+    .clock-date {
+      color: var(--text);
+      opacity: 0.9;
+      margin-bottom: 6px;
+    }
+
+    .clock-meta {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .cards-scroll {
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(300px, 1fr));
+      gap: 16px;
+      min-width: max-content;
+    }
+
+    .day-card {
+      background: linear-gradient(180deg, var(--panel), rgba(24,34,69,0.96));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .day-card.current::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(122,162,255,0.12), transparent 45%);
+      pointer-events: none;
+    }
+
+    .day-card.current {
+      border-color: rgba(122,162,255,0.55);
+      box-shadow: 0 0 0 1px rgba(122,162,255,0.18), var(--shadow);
+    }
+
+    .day-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .day-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .day-subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .day-tag {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .day-tag.today {
+      background: rgba(122,162,255,0.16);
+      border-color: rgba(122,162,255,0.36);
+      color: #dbe6ff;
+    }
+
+    .next-box {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+
+    .next-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 6px;
+    }
+
+    .next-name {
+      font-weight: 800;
+      font-size: 1rem;
+      margin-bottom: 6px;
+    }
+
+    .countdown {
+      font-size: 1.35rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--accent-2);
+      margin-bottom: 8px;
+    }
+
+    .next-times {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .activities {
+      display: grid;
+      gap: 10px;
+    }
+
+    .activity {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .activity:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .activity.next {
+      background: rgba(122,162,255,0.10);
+      border-color: rgba(122,162,255,0.38);
+    }
+
+    .activity.past {
+      opacity: 0.55;
+    }
+
+    .activity-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .activity-name {
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .activity-state {
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .activity-state.next {
+      background: rgba(86,224,197,0.14);
+      border-color: rgba(86,224,197,0.36);
+      color: #d2fff7;
+    }
+
+    .time-pair {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+
+    code.inline {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #eef4ff;
+    }
+
+    @media (max-width: 980px) {
+      .clock-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        width: min(100% - 20px, 1400px);
+        padding-top: 16px;
+      }
+
+      .hero-card,
+      .day-card {
+        border-radius: 18px;
+      }
+
+      .cards {
+        grid-template-columns: repeat(7, minmax(280px, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="hero-top">
+          <div>
+            <h1 class="title">ToP Vanilla mazes</h1>
+            
+          </div>
+          <div class="badge-row">
+            <div class="badge" id="user-zone-badge">Local timezone</div>
+            <div class="badge">Server timezone: America/Los_Angeles</div>
+          </div>
+        </div>
+
+        <div class="clock-grid">
+          <div class="clock-card">
+            <div class="clock-label">Your local time</div>
+            <div class="clock-time" id="local-time">--:--:--</div>
+            <div class="clock-date" id="local-date">---</div>
+            <div class="clock-meta" id="local-meta">---</div>
+          </div>
+
+          <div class="clock-card">
+            <div class="clock-label">Game server time</div>
+            <div class="clock-time" id="server-time">--:--:--</div>
+            <div class="clock-date" id="server-date">---</div>
+            <div class="clock-meta" id="server-meta">---</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards-scroll">
+      <div class="cards" id="cards"></div>
+    </section>
+
+    
+  </div>
+
+  <script>
+    const SERVER_TIMEZONE = 'America/Los_Angeles';
+    const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    // Replace this sample data with your real in-game timetable.
+    const scheduleData = {
+      Monday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '07:00' },
+        { name: 'DW', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'CA', time: '13:00' },
+        { name: 'Dream City', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ],
+      Tuesday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'Dream City', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'DW', time: '13:00' },
+        { name: 'CA', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ],
+      Wednesday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '07:00' },
+        { name: 'Dream City', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'CA', time: '13:00' },
+        { name: 'DW', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ],
+      Thursday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'Dream City', time: '13:00' },
+        { name: 'CA', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ],
+      Friday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '07:00' },
+        { name: 'DW', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'CA', time: '13:00' },
+        { name: 'DW', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'Dream City', time: '21:00' }
+      ],
+      Saturday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'Dream City', time: '13:00' },
+        { name: 'CA', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ],
+      Sunday: [
+        { name: 'DW', time: '01:00' },
+        { name: 'DW', time: '05:00' },
+        { name: 'CTF', time: '06:00' },
+        { name: 'CA', time: '07:00' },
+        { name: 'DW', time: '09:00' },
+        { name: 'CTF', time: '11:00' },
+        { name: 'CA', time: '13:00' },
+        { name: 'Dream City', time: '17:00' },
+        { name: 'CTF', time: '18:00' },
+        { name: 'DW', time: '21:00' }
+      ]
+    };
+
+    const formatters = {
+      localTime: new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      }),
+      localDate: new Intl.DateTimeFormat(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      }),
+      serverTime: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      }),
+      serverDate: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      }),
+      serverDayName: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        weekday: 'long'
+      }),
+      serverMonthDay: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        month: 'short', day: 'numeric'
+      }),
+      serverZoneShort: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        timeZoneName: 'short'
+      }),
+      localZoneLong: new Intl.DateTimeFormat(undefined, {
+        timeZoneName: 'long'
+      }),
+      localShortDateTime: new Intl.DateTimeFormat(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+      }),
+      serverShortDateTime: new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+      })
+    };
+
+    function getTimeZoneOffsetMinutes(date, timeZone) {
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      const parts = Object.fromEntries(
+        dtf.formatToParts(date)
+          .filter(part => part.type !== 'literal')
+          .map(part => [part.type, part.value])
+      );
+
+      const asUTC = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+        Number(parts.second)
+      );
+
+      return (asUTC - date.getTime()) / 60000;
+    }
+
+    function getServerParts(date = new Date()) {
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: SERVER_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      const parts = Object.fromEntries(
+        dtf.formatToParts(date)
+          .filter(part => part.type !== 'literal')
+          .map(part => [part.type, part.value])
+      );
+
+      return {
+        year: Number(parts.year),
+        month: Number(parts.month),
+        day: Number(parts.day),
+        weekday: parts.weekday,
+        hour: Number(parts.hour),
+        minute: Number(parts.minute),
+        second: Number(parts.second)
+      };
+    }
+
+    function buildServerDateTime(baseServerDate, hhmm) {
+      const [hour, minute] = hhmm.split(':').map(Number);
+      const utcGuess = new Date(Date.UTC(
+        baseServerDate.year,
+        baseServerDate.month - 1,
+        baseServerDate.day,
+        hour,
+        minute,
+        0
+      ));
+
+      const offsetMinutes = getTimeZoneOffsetMinutes(utcGuess, SERVER_TIMEZONE);
+      return new Date(utcGuess.getTime() - offsetMinutes * 60000);
+    }
+
+    function addDaysInServerCalendar(serverDate, daysToAdd) {
+      const noonUTC = new Date(Date.UTC(
+        serverDate.year,
+        serverDate.month - 1,
+        serverDate.day + daysToAdd,
+        12,
+        0,
+        0
+      ));
+      return getServerParts(noonUTC);
+    }
+
+    function formatDuration(ms) {
+      if (ms <= 0) return 'Now';
+      const totalSeconds = Math.floor(ms / 1000);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+      if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function zoneSuffix(formatter, date) {
+      const zone = formatter.formatToParts(date).find(part => part.type === 'timeZoneName');
+      return zone ? zone.value : '';
+    }
+
+    function renderClocks(now) {
+      const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local timezone';
+      const localOffset = -now.getTimezoneOffset() / 60;
+      const serverOffset = getTimeZoneOffsetMinutes(now, SERVER_TIMEZONE) / 60;
+      const diffHours = localOffset - serverOffset;
+      const diffLabel = diffHours === 0
+        ? 'You and server are on the same UTC offset'
+        : diffHours > 0
+          ? `You are ${Math.abs(diffHours)} hour(s) ahead`
+          : `You are ${Math.abs(diffHours)} hour(s) behind`;
+
+      document.getElementById('user-zone-badge').textContent = `Local timezone: ${localZone}`;
+      document.getElementById('local-time').textContent = formatters.localTime.format(now);
+      document.getElementById('local-date').textContent = formatters.localDate.format(now);
+      document.getElementById('local-meta').textContent = zoneSuffix(formatters.localZoneLong, now);
+
+      document.getElementById('server-time').textContent = formatters.serverTime.format(now);
+      document.getElementById('server-date').textContent = formatters.serverDate.format(now);
+      document.getElementById('server-meta').textContent = `Current server zone: ${zoneSuffix(formatters.serverZoneShort, now)}`;
+    }
+
+    function getWeekCards(now) {
+      const currentServer = getServerParts(now);
+      const currentDayIndex = WEEKDAYS.indexOf(currentServer.weekday);
+
+      return Array.from({ length: 7 }, (_, offset) => {
+        const weekdayIndex = (currentDayIndex + offset) % 7;
+        const weekdayName = WEEKDAYS[weekdayIndex];
+        const serverDate = addDaysInServerCalendar(currentServer, offset);
+        const activities = (scheduleData[weekdayName] || []).map(item => ({
+          ...item,
+          startDate: buildServerDateTime(serverDate, item.time)
+        })).sort((a, b) => a.startDate - b.startDate);
+
+        let nextIndex = activities.findIndex(activity => activity.startDate > now);
+        if (nextIndex === -1) nextIndex = activities.length ? 0 : -1;
+
+        return {
+          offset,
+          weekdayName,
+          serverDate,
+          isCurrentDay: offset === 0,
+          activities,
+          nextIndex
+        };
+      });
+    }
+
+    function createActivityHTML(activity, isNext, now) {
+      const isPast = activity.startDate <= now && !isNext;
+      return `
+        <div class="activity ${isNext ? 'next' : ''} ${isPast ? 'past' : ''}">
+          <div class="activity-top">
+            <div class="activity-name">${activity.name}</div>
+            <div class="activity-state ${isNext ? 'next' : ''}">${isNext ? 'Next' : isPast ? 'Passed' : 'Upcoming'}</div>
+          </div>
+          <div class="time-pair">
+            <div><strong>Server:</strong> ${formatters.serverShortDateTime.format(activity.startDate)}</div>
+            <div><strong>Local:</strong> ${formatters.localShortDateTime.format(activity.startDate)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCards(now) {
+      const cards = getWeekCards(now);
+      const root = document.getElementById('cards');
+
+      root.innerHTML = cards.map(card => {
+        const nextActivity = card.nextIndex >= 0 ? card.activities[card.nextIndex] : null;
+        const countdown = nextActivity ? formatDuration(nextActivity.startDate - now) : 'No events';
+        const activitiesHTML = card.activities.length
+          ? card.activities.map((activity, index) => createActivityHTML(activity, index === card.nextIndex, now)).join('')
+          : '<div class="activity"><div class="activity-name">No activities configured</div></div>';
+
+        return `
+          <article class="day-card ${card.isCurrentDay ? 'current' : ''}">
+            <div class="day-head">
+              <div>
+                <h2 class="day-title">${card.weekdayName}</h2>
+                <div class="day-subtitle">Server date: ${formatters.serverMonthDay.format(buildServerDateTime(card.serverDate, '12:00'))}</div>
+              </div>
+              <div class="day-tag ${card.isCurrentDay ? 'today' : ''}">${card.isCurrentDay ? 'Current day' : `+${card.offset} day${card.offset === 1 ? '' : 's'}`}</div>
+            </div>
+
+            <div class="next-box">
+              <div class="next-label">Next available activity</div>
+              <div class="next-name">${nextActivity ? nextActivity.name : 'No activity configured'}</div>
+              <div class="countdown">${countdown}</div>
+              <div class="next-times">
+                ${nextActivity ? `
+                  <div><strong>Server:</strong> ${formatters.serverShortDateTime.format(nextActivity.startDate)}</div>
+                  <div><strong>Local:</strong> ${formatters.localShortDateTime.format(nextActivity.startDate)}</div>
+                ` : '<div>Add entries to scheduleData for this day.</div>'}
+              </div>
+            </div>
+
+            <div class="activities">
+              ${activitiesHTML}
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function tick() {
+      const now = new Date();
+      renderClocks(now);
+      renderCards(now);
+    }
+
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>
