@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Game Activity Timetable</title>
+  <title>ToP Vanilla Timetable</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -350,8 +350,8 @@
       <div class="hero-card">
         <div class="hero-top">
           <div>
-            <h1 class="title">ToP Vanilla mazes</h1>
-            
+            <h1 class="title">Game Activity Timetable</h1>
+
           </div>
           <div class="badge-row">
             <div class="badge" id="user-zone-badge">Local timezone</div>
@@ -373,6 +373,13 @@
             <div class="clock-date" id="server-date">---</div>
             <div class="clock-meta" id="server-meta">---</div>
           </div>
+
+          <div class="clock-card">
+            <div class="clock-label">Next available maze</div>
+            <div class="clock-time" id="maze-name">--</div>
+            <div class="clock-date" id="maze-countdown">---</div>
+            <div class="clock-meta" id="maze-meta">---</div>
+          </div>
         </div>
       </div>
     </section>
@@ -381,7 +388,6 @@
       <div class="cards" id="cards"></div>
     </section>
 
-    
   </div>
 
   <script>
@@ -618,18 +624,33 @@
       return zone ? zone.value : '';
     }
 
-    function renderClocks(now) {
-      const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local timezone';
-      const localOffset = -now.getTimezoneOffset() / 60;
-      const serverOffset = getTimeZoneOffsetMinutes(now, SERVER_TIMEZONE) / 60;
-      const diffHours = localOffset - serverOffset;
-      const diffLabel = diffHours === 0
-        ? 'You and server are on the same UTC offset'
-        : diffHours > 0
-          ? `You are ${Math.abs(diffHours)} hour(s) ahead`
-          : `You are ${Math.abs(diffHours)} hour(s) behind`;
+    function findNextActivity(now) {
+      const currentServer = getServerParts(now);
+      const currentDayIndex = WEEKDAYS.indexOf(currentServer.weekday);
 
-      document.getElementById('user-zone-badge').textContent = `Local timezone: ${localZone}`;
+      for (let dayOffset = 0; dayOffset < 8; dayOffset++) {
+        const weekdayIndex = (currentDayIndex + dayOffset) % 7;
+        const weekdayName = WEEKDAYS[weekdayIndex];
+        const serverDate = addDaysInServerCalendar(currentServer, dayOffset);
+        const activities = (scheduleData[weekdayName] || [])
+          
+          .map(item => ({
+            ...item,
+            startDate: buildServerDateTime(serverDate, item.time)
+          }))
+          .sort((a, b) => a.startDate - b.startDate);
+
+        const upcoming = activities.find(activity => activity.startDate > now);
+        if (upcoming) {
+          return upcoming;
+        }
+      }
+
+      return null;
+    }
+
+    function renderClocks(now) {
+      document.getElementById('user-zone-badge').textContent = `Local timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local timezone'}`;
       document.getElementById('local-time').textContent = formatters.localTime.format(now);
       document.getElementById('local-date').textContent = formatters.localDate.format(now);
       document.getElementById('local-meta').textContent = zoneSuffix(formatters.localZoneLong, now);
@@ -637,6 +658,13 @@
       document.getElementById('server-time').textContent = formatters.serverTime.format(now);
       document.getElementById('server-date').textContent = formatters.serverDate.format(now);
       document.getElementById('server-meta').textContent = `Current server zone: ${zoneSuffix(formatters.serverZoneShort, now)}`;
+
+      const nextActivity = findNextActivity(now);
+      document.getElementById('maze-name').textContent = nextActivity ? nextActivity.name : 'No maze found';
+      document.getElementById('maze-countdown').textContent = nextActivity ? formatDuration(nextActivity.startDate - now) : '---';
+      document.getElementById('maze-meta').innerHTML = nextActivity
+        ? `<strong>Server:</strong> ${formatters.serverShortDateTime.format(nextActivity.startDate)}<br><strong>Local:</strong> ${formatters.localShortDateTime.format(nextActivity.startDate)}`
+        : 'Add a maze activity to scheduleData.';
     }
 
     function getWeekCards(now) {
